@@ -1,13 +1,15 @@
 ### Jared Homer, Alex Stephens
 ###############################################################################
-import os, shutil, glob
+import glob
+import os
+import shutil
 from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-from keras import models
-from keras import layers
-from keras import utils
+
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+from keras import layers, models, utils
+
 ###############################################################################
 
 BASE_PATH = os.getcwd()
