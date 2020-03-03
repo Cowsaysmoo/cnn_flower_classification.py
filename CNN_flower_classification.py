@@ -8,7 +8,7 @@ from pathlib import Path
 ### plot the training history
 import matplotlib.pyplot as plt
 import numpy as np
-from keras import layers, models, utils
+from keras import layers, models, utils, optimizers
 import tensorflow as tf
 
 import cv2
@@ -141,7 +141,7 @@ def resize_images(src_path, new_size):
             cv2.imwrite(fname, new_img)
             os.chdir(BASE_PATH)
 
-def augment_images(src_path):
+def augment_images(src_path):  #Data augmentation using OpenCV
     if not isinstance(src_path, str):
         raise Exception("src_path must be of type string.")
     count = 0
@@ -150,14 +150,25 @@ def augment_images(src_path):
         file = os.path.join(src_path, fname)
         src_img = cv2.imread(file)
         os.chdir(src_path)
-        os.rename(fname, "A{}".format(os.path.basename(fname)))
-        new_img = np.copy(src_img)
-        new_img = cv2.flip(new_img, 0)
-        cv2.imwrite(fname, new_img)
-        new_img = cv2.flip(new_img, 1)
-        os.rename(fname, "B{}".format(os.path.basename(fname)))
-        cv2.imwrite(fname, new_img)
-        os.chdir(BASE_PATH)
+        if not os.path.isfile("A{}".format(os.path.basename(fname))):
+            os.rename(fname, "A{}".format(os.path.basename(fname)))
+            new_img = np.copy(src_img)
+            new_img = cv2.flip(new_img, 0)
+
+            cv2.imwrite(fname, new_img)
+            new_img = cv2.flip(new_img, 1)
+            os.rename(fname, "B{}".format(os.path.basename(fname)))
+
+            cv2.imwrite(fname, new_img)
+            pts1 = np.float32([[56, 65], [368, 52], [28, 387], [389, 390]])  #Random distortion
+            pts2 = np.float32([[0, 0], [300, 0], [0, 300], [300, 300]])
+
+            M = cv2.getPerspectiveTransform(pts1, pts2)
+            cv2.warpPerspective(new_img, M,(150, 150))
+            os.rename(fname, "C{}".format(os.path.basename(fname)))
+
+            cv2.imwrite(fname, new_img)
+            os.chdir(BASE_PATH)
 
 def add_imgs_labels(src_path, src_imgs, src_labels, label):
     if not isinstance(src_path, str):
@@ -288,18 +299,21 @@ test_labels = np.array(test_labels)
 # create network architecture
 network = models.Sequential()
 
-network.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=test_images[0].shape))
+network.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=test_images[0].shape))
 network.add(layers.MaxPooling2D((2, 2)))
-network.add(layers.Conv2D(64, (3, 3), activation='relu'))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.MaxPooling2D((2, 2)))
-network.add(layers.Conv2D(64, (3, 3), activation='relu'))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.MaxPooling2D((2, 2)))
-network.add(layers.Conv2D(64, (3, 3), activation='relu'))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
+network.add(layers.MaxPooling2D((2, 2)))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.Flatten())
-network.add(layers.Dense(80, activation='relu'))
+network.add(layers.Dropout(0.5))
+network.add(layers.Dense(500, activation='relu'))
 network.add(layers.Dense(5, activation='softmax'))
 
-network.compile(optimizer='sgd',
+network.compile(optimizer=optimizers.RMSprop(lr=(1e-4)),
                 loss='categorical_crossentropy',
                 metrics=['accuracy'])
 
@@ -309,13 +323,13 @@ val_images = val_images.astype('float32') / 255
 test_images = test_images.astype('float32') / 255
 
 # fit network
-history=network.fit(train_images, train_labels, epochs=15, batch_size=75,
+history=network.fit(train_images, train_labels, epochs=15, batch_size=55,
                     validation_data=(val_images, val_labels))
 
 # plotting network statistics
-acc = history.history['accuracy']
+acc = history.history['acc']
 loss = history.history['loss']
-val_acc = history.history['val_accuracy']
+val_acc = history.history['val_acc']
 val_loss = history.history['val_loss']
 epochs = range(1, len(acc) + 1)
 
