@@ -1,7 +1,8 @@
 ### Jared Homer, Alex Stephens
 ###############################################################################
-import plaidml.keras
-plaidml.keras.install_backend()
+# uncomment to run on Alex's PC for AMD GPU
+# import plaidml.keras
+# plaidml.keras.install_backend()
 
 import glob
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from keras import backend as K
+# from keras import backend as K # uncomment to run on Alex's PC for AMD GPU
 from keras import layers, models, utils
 from keras.preprocessing import image
 
