@@ -1,14 +1,18 @@
 ### Jared Homer, Alex Stephens
 ###############################################################################
+import plaidml.keras
+plaidml.keras.install_backend()
+
 import glob
 import os
 import shutil
 from pathlib import Path
 
-### plot the training history
 import matplotlib.pyplot as plt
 import numpy as np
+from keras import backend as K
 from keras import layers, models, utils
+from keras.preprocessing import image
 
 import cv2
 
@@ -257,34 +261,52 @@ for i, path in enumerate(TEST_PATHS):
 test_images = np.array(test_images)
 test_labels = np.array(test_labels)
 
+train_datagen = image.ImageDataGenerator(
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    horizontal_flip=True,
+    vertical_flip=True,
+)
+val_datagen = image.ImageDataGenerator()
+test_datagen = image.ImageDataGenerator()
+
+# normalize
+train_images = train_images.astype('float32') / 255
+val_images = val_images.astype('float32') / 255
+test_images = test_images.astype('float32') / 255
+
+train_gen = train_datagen.flow((train_images, train_labels), batch_size=32)
+val_gen = val_datagen.flow((val_images, val_labels), batch_size=500)
+test_gen = test_datagen.flow((test_images, test_labels), batch_size=500)
+
 # create network architecture
 network = models.Sequential()
 
-network.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=test_images[0].shape))
+network.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=train_images[0].shape))
 network.add(layers.MaxPooling2D((2, 2)))
 network.add(layers.Conv2D(64, (3, 3), activation='relu'))
 network.add(layers.MaxPooling2D((2, 2)))
 network.add(layers.Conv2D(64, (3, 3), activation='relu'))
+network.add(layers.MaxPooling2D((2, 2)))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.Flatten())
-network.add(layers.Dense(64, activation='relu'))
+network.add(layers.Dropout(0.5))
+network.add(layers.Dense(128, activation='relu'))
 network.add(layers.Dense(5, activation='softmax'))
 
 network.compile(optimizer='rmsprop',
                 loss='categorical_crossentropy',
                 metrics=['accuracy'])
 
-# normalize inputs
-train_images = train_images.astype('float32') / 255
-test_images = test_images.astype('float32') / 255
-
 # fit network
-history=network.fit(train_images, train_labels, epochs=15, batch_size=50,
-                    validation_data=(val_images, val_labels))
+history=network.fit_generator(train_gen, steps_per_epoch=100, epochs=50,
+                              validation_data=val_gen, validation_steps=50)
 
 # plotting network statistics
-acc = history.history['accuracy']
+acc = history.history['acc']
 loss = history.history['loss']
-val_acc = history.history['val_accuracy']
+val_acc = history.history['val_acc']
 val_loss = history.history['val_loss']
 epochs = range(1, len(acc) + 1)
 
@@ -306,5 +328,5 @@ plt.legend()
 plt.show()
 
 # test model
-test_loss, test_acc = network.evaluate(test_images, test_labels)
+test_loss, test_acc = network.evaluate_generator(test_gen)
 print(test_acc)
