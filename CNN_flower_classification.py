@@ -302,6 +302,9 @@ network = models.Sequential()
 network.add(layers.Conv2D(128, (3, 3), activation='relu', input_shape=test_images[0].shape))
 network.add(layers.MaxPooling2D((2, 2)))
 network.add(layers.Conv2D(128, (3, 3), activation='relu'))
+
+network.add(layers.MaxPooling2D((2, 2)))
+network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.MaxPooling2D((2, 2)))
 network.add(layers.Conv2D(128, (3, 3), activation='relu'))
 network.add(layers.MaxPooling2D((2, 2)))
@@ -313,7 +316,7 @@ network.add(layers.Dropout(0.5))
 network.add(layers.Dense(500, activation='relu'))
 network.add(layers.Dense(5, activation='softmax'))
 
-network.compile(optimizer=optimizers.RMSprop(lr=(1e-4)),
+network.compile(optimizer=optimizers.RMSprop(lr=(1e-5)),
                 loss='categorical_crossentropy',
                 metrics=['accuracy'])
 
@@ -323,7 +326,7 @@ val_images = val_images.astype('float32') / 255
 test_images = test_images.astype('float32') / 255
 
 # fit network
-history=network.fit(train_images, train_labels, epochs=15, batch_size=55,
+history=network.fit(train_images, train_labels, epochs=15, batch_size=30,
                     validation_data=(val_images, val_labels))
 
 # plotting network statistics
