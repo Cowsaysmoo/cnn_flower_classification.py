@@ -1,8 +1,8 @@
 ### Jared Homer, Alex Stephens
 ###############################################################################
 # uncomment to run on Alex's PC for AMD GPU
-# import plaidml.keras
-# plaidml.keras.install_backend()
+import plaidml.keras
+plaidml.keras.install_backend()
 
 import glob
 import os
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-# from keras import backend as K # uncomment to run on Alex's PC for AMD GPU
+from keras import backend as K # uncomment to run on Alex's PC for AMD GPU
 from keras import layers, models, applications, optimizers
 from keras.preprocessing import image
 
@@ -91,15 +91,7 @@ TEST_PATHS = [
     TEST_TULIP_PATH
 ]
 
-LABELS = [
-    0, # Daisy
-    1, # Dandelion
-    2, # Rose
-    3, # Sun
-    4, # Tulip
-]
-
-INPUT_SIZE = (50, 50)
+INPUT_SIZE = (150, 150)
 
 ###############################################################################
 
@@ -176,14 +168,16 @@ conv_base = applications.VGG16(weights='imagenet',
                                include_top=False,
                                input_shape=(INPUT_SIZE[0],INPUT_SIZE[1],3))
 
-model = models.Sequential()
-model.add(conv_base)
-model.add(layers.Flatten())
-model.add(layers.Dense(80, activation='relu'))
-model.add(layers.Dense(1, activation='softmax'))
+network = models.Sequential()
+network.add(conv_base)
+network.add(layers.Flatten())
+network.add(layers.Dense(128, activation='relu'))
+network.add(layers.Dropout(0.1))
+network.add(layers.Dense(5, activation='softmax'))
 
-# lock VGG model base as untrainable
-conv_base.trainable = False
+# unlock VGG's last block of layers, lock the rest
+for layer in conv_base.layers[:-4]:
+    layer.trainable = False
 
 # data augmentation generators and normalization
 train_datagen = image.ImageDataGenerator(
@@ -203,35 +197,35 @@ test_datagen = image.ImageDataGenerator(rescale=1.0/255)
 train_gen = train_datagen.flow_from_directory(
     TRAIN_PATH,
     target_size=INPUT_SIZE,
-    batch_size=32,
-    class_mode="binary"
+    batch_size=50,
+    class_mode="categorical"
 )
 val_gen = val_datagen.flow_from_directory(
     VAL_PATH,
     target_size=INPUT_SIZE,
-    batch_size=32,
-    class_mode="binary"
+    batch_size=50,
+    class_mode="categorical"
 )
 test_gen = test_datagen.flow_from_directory(
     TEST_PATH,
     target_size=INPUT_SIZE,
-    batch_size=500, # all images in test_gen
-    class_mode="binary"
+    batch_size=100, # lower this number if you get an out of memory error
+    class_mode="categorical"
 )
 
-model.compile(
-    loss="binary_crossentropy",
-    optimizer=optimizers.RMSprop(lr=2e-5),
+network.compile(
+    loss="categorical_crossentropy",
+    optimizer=optimizers.RMSprop(lr=1e-4),
     metrics=['acc']
 )
 
 # train model
-history = model.fit_generator(
+history = network.fit_generator(
     train_gen,
-    steps_per_epoch=100,
+    steps_per_epoch=train_gen.samples//train_gen.batch_size,
     epochs=10,
     validation_data=val_gen,
-    validation_steps=50,
+    validation_steps=val_gen.samples//val_gen.batch_size,
     verbose=1
 )
 
@@ -244,7 +238,7 @@ epochs = range(1, len(acc) + 1)
 
 plt.figure(1)
 plt.plot(epochs, acc, 'r', label='Training accuracy')
-plt.plot(epochs, val_acc, 'bo', label='Validation accuracy')
+plt.plot(epochs, val_acc, 'b', label='Validation accuracy')
 plt.title('Training accuracy')
 plt.xlabel('Epochs')
 plt.ylabel('Accuracy')
@@ -252,7 +246,7 @@ plt.legend()
 
 plt.figure(2)
 plt.plot(epochs, loss, 'r', label='Training loss')
-plt.plot(epochs, val_loss, 'bo', label='Validation accuracy')
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
 plt.title('Training loss')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
@@ -260,5 +254,6 @@ plt.legend()
 plt.show()
 
 # test model
+print("Getting test accuracy, this could take a while.")
 test_loss, test_acc = network.evaluate_generator(test_gen)
-print(test_acc)
+print("Test accuracy: {:.2f}%, or {}".format(test_acc*100, test_acc))
